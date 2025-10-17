@@ -2,22 +2,39 @@
 #define SETTINGSWINDOW_H
 
 #include <QWidget>
-#include "settingsitem.h"
-#include <QList>
 #include <QMap>
-#include <QScrollArea>
-#include <QList>
-#include <QString>
 
-class SettingsWindow : public QWidget {
+class SettingsItem;
+class QTreeWidget;
+class QTreeWidgetItem;
+class QStackedWidget;
+class QScrollArea;
+
+class SettingsWindow : public QWidget
+{
     Q_OBJECT
 
 public:
-    explicit SettingsWindow(QWidget *parent = nullptr);
+    SettingsWindow(QWidget* parent = nullptr);
     ~SettingsWindow();
 
 private:
-    QList<SettingsItem*> items; // Список всех элементов
+    void setupUI();
+    void createSettingsTree();
+    void buildTreeWidget();
+    void addItemToTreeWidget(SettingsItem* settingsItem, QTreeWidgetItem* parentTreeItem);
+    void createPagesForGroups();
+    void createPageForGroup(SettingsItem* groupItem);
+    void setupConnections();
+
+private slots:
+    void onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
+
+private:
+    QTreeWidget* treeWidget;
+    QStackedWidget* stackedWidget;
+    SettingsItem* rootItem;
+    QMap<SettingsItem*, QScrollArea*> groupPages;
 };
 
 #endif // SETTINGSWINDOW_H
