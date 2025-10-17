@@ -16,11 +16,15 @@
 #include <QFrame>
 #include <QLabel>
 #include <QTreeWidgetItem>
+#include <QCloseEvent>
 
 SettingsWindow::SettingsWindow(QWidget* parent) : QWidget(parent) {
     setupUI();
     createSettingsTree();
     setupConnections();
+
+    loadSettings();
+    connectSignalsForAutoSave();
 }
 
 SettingsWindow::~SettingsWindow() {
@@ -213,4 +217,135 @@ void SettingsWindow::onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem
             stackedWidget->setCurrentWidget(groupPages[settingsItem]);
         }
     }
+}
+
+#include <QSettings>
+#include <QDebug>
+
+void SettingsWindow::loadSettings() {
+    qDebug() << "=== LOADING SETTINGS ===";
+    QSettings settings("TestLabs", "TestSettings");
+
+    qDebug() << "Settings file:" << settings.fileName();
+
+    // Собираем все элементы которые можно сохранять
+    QList<SettingsItem*> allItems = rootItem->getAllChildren();
+    allItems.prepend(rootItem);
+
+    int loadedCount = 0;
+    for (SettingsItem* item : allItems) {
+        if (!item->isSavingEnabled() || item->isGroup()) continue;
+
+        QString settingsPath = buildSettingsPath(item);
+        QVariant defaultValue = item->getValue();
+        QVariant savedValue = settings.value(settingsPath, defaultValue);
+
+        qDebug() << "Loading:" << item->name() << "Path:" << settingsPath
+                 << "Default:" << defaultValue << "Saved:" << savedValue;
+
+        if (savedValue != defaultValue) {
+            applyValueToWidget(item, savedValue);
+            loadedCount++;
+        }
+    }
+
+    qDebug() << "Loaded" << loadedCount << "settings";
+}
+
+void SettingsWindow::saveSettings() {
+    qDebug() << "=== SAVING SETTINGS ===";
+    QSettings settings("TestLabs", "TestSettings");
+
+    // Собираем все элементы которые можно сохранять
+    QList<SettingsItem*> allItems = rootItem->getAllChildren();
+    allItems.prepend(rootItem);
+
+    int savedCount = 0;
+    for (SettingsItem* item : allItems) {
+        if (!item->isSavingEnabled() || item->isGroup()) continue;
+
+        QString settingsPath = buildSettingsPath(item);
+        QVariant currentValue = item->getValue();
+
+        qDebug() << "Saving:" << item->name() << "Path:" << settingsPath << "Value:" << currentValue;
+
+        settings.setValue(settingsPath, currentValue);
+        savedCount++;
+    }
+
+    settings.sync();
+    qDebug() << "Saved" << savedCount << "settings";
+}
+
+QString SettingsWindow::buildSettingsPath(SettingsItem* item) const {
+    QStringList pathParts;
+    SettingsItem* current = item;
+
+    // Собираем путь от корня до элемента
+    while (current) {
+        if (!current->id().isEmpty()) {
+            pathParts.prepend(current->id());
+        }
+        current = current->parent();
+    }
+
+    return pathParts.join("/");
+}
+
+void SettingsWindow::applyValueToWidget(SettingsItem* item, const QVariant& value) {
+    if (QComboBox* comboBox = item->comboBox()) {
+        int index = comboBox->findText(value.toString());
+        if (index >= 0) comboBox->setCurrentIndex(index);
+    } else if (QCheckBox* checkBox = item->checkBox()) {
+        checkBox->setChecked(value.toBool());
+    } else if (QSpinBox* spinBox = item->spinBox()) {
+        spinBox->setValue(value.toInt());
+    } else if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(item->controlWidget())) {
+        lineEdit->setText(value.toString());
+    } else if (QWidget* compositeWidget = item->controlWidget()) {
+        QLineEdit* lineEdit = compositeWidget->findChild<QLineEdit*>();
+        if (lineEdit) lineEdit->setText(value.toString());
+    }
+}
+
+void SettingsWindow::connectSignalsForAutoSave() {
+    qDebug() << "=== CONNECTING AUTO-SAVE SIGNALS ===";
+
+    // Собираем все элементы которые можно сохранять
+    QList<SettingsItem*> allItems = rootItem->getAllChildren();
+    allItems.prepend(rootItem);
+
+    int connectedCount = 0;
+    for (SettingsItem* item : allItems) {
+        if (!item->isSavingEnabled() || item->isGroup()) continue;
+
+        if (QComboBox* comboBox = item->comboBox()) {
+            connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                    this, &SettingsWindow::saveSettings);
+            connectedCount++;
+        } else if (QCheckBox* checkBox = item->checkBox()) {
+            connect(checkBox, &QCheckBox::toggled, this, &SettingsWindow::saveSettings);
+            connectedCount++;
+        } else if (QSpinBox* spinBox = item->spinBox()) {
+            connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &SettingsWindow::saveSettings);
+            connectedCount++;
+        } else if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(item->controlWidget())) {
+            connect(lineEdit, &QLineEdit::textChanged, this, &SettingsWindow::saveSettings);
+            connectedCount++;
+        } else if (QWidget* compositeWidget = item->controlWidget()) {
+            QLineEdit* lineEdit = compositeWidget->findChild<QLineEdit*>();
+            if (lineEdit) {
+                connect(lineEdit, &QLineEdit::textChanged, this, &SettingsWindow::saveSettings);
+                connectedCount++;
+            }
+        }
+    }
+
+    qDebug() << "Connected" << connectedCount << "signals";
+}
+
+void SettingsWindow::closeEvent(QCloseEvent* event) {
+    qDebug() << "=== WINDOW CLOSING - SAVING SETTINGS ===";
+    saveSettings();
+    event->accept();
 }

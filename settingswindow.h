@@ -26,6 +26,7 @@ private:
     void createPagesForGroups();
     void createPageForGroup(SettingsItem* groupItem);
     void setupConnections();
+    void closeEvent(QCloseEvent* event) override;
 
 private slots:
     void onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
@@ -35,6 +36,11 @@ private:
     QStackedWidget* stackedWidget;
     SettingsItem* rootItem;
     QMap<SettingsItem*, QScrollArea*> groupPages;
+    void loadSettings();
+    void saveSettings();
+    void connectSignalsForAutoSave();
+    QString buildSettingsPath(SettingsItem* item) const;
+    void applyValueToWidget(SettingsItem* item, const QVariant& value);
 };
 
 #endif // SETTINGSWINDOW_H
