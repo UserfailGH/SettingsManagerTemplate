@@ -7,12 +7,23 @@
 #include <QCheckBox>
 #include <QSpinBox>
 
+// Конструктор для обычных настроек
 SettingsItem::SettingsItem(SettingsItem* parent, const QString& name, const QString& id,
                            const QString& description, SettingsControlFactory* factory,
                            bool enableSaving)
     : parentItem_(parent), name_(name), id_(id), description_(description),
-    factory_(factory), controlWidget_(nullptr), enableSaving_(enableSaving),
-    isGroup_(false)
+      factory_(factory), controlWidget_(nullptr), enableSaving_(enableSaving)
+{
+    if (parentItem_) {
+        parentItem_->appendChild(this);
+    }
+}
+
+// Конструктор для групп
+SettingsItem::SettingsItem(SettingsItem* parent, const QString& name, const QString& id,
+                           const QString& description)
+    : parentItem_(parent), name_(name), id_(id), description_(description),
+      factory_(nullptr), controlWidget_(nullptr), enableSaving_(false)
 {
     if (parentItem_) {
         parentItem_->appendChild(this);
@@ -48,14 +59,6 @@ int SettingsItem::row() const {
     if (parentItem_)
         return parentItem_->childItems_.indexOf(const_cast<SettingsItem*>(this));
     return 0;
-}
-
-bool SettingsItem::isGroup() const {
-    return isGroup_;
-}
-
-void SettingsItem::setIsGroup(bool isGroup) {
-    isGroup_ = isGroup;
 }
 
 QList<SettingsItem*> SettingsItem::getAllChildren() const {
@@ -114,7 +117,7 @@ SettingsControlFactory* SettingsItem::factory() const {
 }
 
 QHBoxLayout* SettingsItem::createWidget() const {
-    if (isGroup_) {
+    if (isGroup()) {
         return nullptr;
     }
 
@@ -137,7 +140,7 @@ QWidget* SettingsItem::controlWidget() const {
 }
 
 QVariant SettingsItem::getValue() const {
-    if (!controlWidget_ || isGroup_) {
+    if (!controlWidget_ || isGroup()) {
         return QVariant();
     }
 
@@ -160,7 +163,7 @@ QVariant SettingsItem::getValue() const {
 }
 
 bool SettingsItem::isSavingEnabled() const {
-    return enableSaving_ && !isGroup_;
+    return enableSaving_ && !isGroup();
 }
 
 QComboBox* SettingsItem::comboBox() const {

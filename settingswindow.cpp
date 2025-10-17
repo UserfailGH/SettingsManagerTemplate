@@ -51,21 +51,15 @@ void SettingsWindow::setupUI() {
 }
 
 void SettingsWindow::createSettingsTree() {
-    // Создаем корневой элемент
-    rootItem = new SettingsItem(nullptr, "Settings", "root", "Application Settings", nullptr, false );
-    rootItem->setIsGroup(true);
+    // Создаем корневой элемент (группа)
+    rootItem = new SettingsItem(nullptr, "Settings", "root", "Application Settings");
 
-    // Создаем группы
-    SettingsItem* mainGroup = new SettingsItem(rootItem, "Main Settings", "main_group", "General application settings", nullptr, false);
-    mainGroup->setIsGroup(true);
+    // Создаем группы (используем конструктор для групп)
+    SettingsItem* mainGroup = new SettingsItem(rootItem, "Main Settings", "main_group", "General application settings");
+    SettingsItem* templateGroup = new SettingsItem(rootItem, "Template Settings", "template_group", "File template settings");
+    SettingsItem* colorGroup = new SettingsItem(rootItem, "Appearance", "appearance_group", "Visual appearance settings");
 
-    SettingsItem* templateGroup = new SettingsItem(rootItem, "Template Settings", "template_group", "File template settings", nullptr, false);
-    templateGroup->setIsGroup(true);
-
-    SettingsItem* colorGroup = new SettingsItem(rootItem, "Appearance", "appearance_group", "Visual appearance settings", nullptr, false);
-    colorGroup->setIsGroup(true);
-
-    // Добавляем настройки в группу Main
+    // Добавляем настройки в группу Main (используем конструктор для настроек)
     SettingsItem* languageItem = new SettingsItem(mainGroup, "Language", "1", "Select interface language",
                                                   new ComboBoxFactory("English", QStringList() << "English" << "Russian" << "Spanish"), true);
 

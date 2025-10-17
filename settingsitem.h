@@ -12,8 +12,12 @@
 
 class SettingsItem {
 public:
+    // Конструктор для обычных настроек
     SettingsItem(SettingsItem* parent, const QString& name, const QString& id, const QString& description,
                  SettingsControlFactory* factory, bool enableSaving = true);
+
+    // Конструктор для групп (без factory и enableSaving)
+    SettingsItem(SettingsItem* parent, const QString& name, const QString& id, const QString& description);
 
     ~SettingsItem();
 
@@ -23,8 +27,11 @@ public:
     SettingsItem* child(int row);
     int childCount() const;
     int row() const;
-    bool isGroup() const;
-    void setIsGroup(bool isGroup);
+
+    // Группа - это элемент без родителя ИЛИ элемент без factory
+    bool isGroup() const {
+        return (parent() == nullptr) || (factory() == nullptr);
+    }
 
     QList<SettingsItem*> getAllChildren() const;
     SettingsItem* findItemById(const QString& id) const;
@@ -58,7 +65,6 @@ private:
     SettingsControlFactory* factory_;
     mutable QWidget* controlWidget_;
     bool enableSaving_;
-    bool isGroup_;
 };
 
 #endif // SETTINGSITEM_H
