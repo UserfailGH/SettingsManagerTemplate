@@ -26,6 +26,7 @@ add_executable(My1stProj
     colordialogfactory.h colordialogfactory.cpp
     settingswidgetbuilder.h settingswidgetbuilder.cpp
 
+
 )
 
 # Link Qt6 libraries

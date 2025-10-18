@@ -2,28 +2,44 @@
 #define SETTINGSWIDGETBUILDER_H
 
 #include <QObject>
+#include <QHBoxLayout>
 #include <QList>
 #include <QMap>
-#include <QScrollArea>
-#include "settingsitem.h"
 
-class SettingsWidgetBuilder : public QObject {
+class SettingsItem;
+class QTreeWidget;
+class QTreeWidgetItem;
+class QStackedWidget;
+
+class SettingsWidgetBuilder : public QObject
+{
     Q_OBJECT
 
 public:
-    explicit SettingsWidgetBuilder(QList<SettingsItem*> widgetList, QObject* parent = nullptr);
+    SettingsWidgetBuilder(QList<SettingsItem*> widgetList, QObject* parent = nullptr);
     ~SettingsWidgetBuilder();
 
     QWidget* getEmbeddedWidget() const;
 
 private:
-    QList<SettingsItem*> widgetList_;
-    QHBoxLayout* embedLayout_; // Основной макет
-
+    void setupTreeUI();
+    void buildSettingsTree(QTreeWidget* treeWidget, QStackedWidget* stackedWidget);
+    void addTreeItem(QTreeWidget* treeWidget, QStackedWidget* stackedWidget,
+                     SettingsItem* settingsItem, QTreeWidgetItem* parentTreeItem);
+    void createGroupPage(QStackedWidget* stackedWidget, SettingsItem* groupItem);
+    QString buildSettingsPath(SettingsItem* item) const;
     void loadSettings();
     void saveSettings();
+    void applyValueToWidget(SettingsItem* item, const QVariant& value);
     void connectSignalsForAutoSave();
-    QScrollArea* createScrollAreaForGroup(const QString& group, const QList<SettingsItem*>& widgetList);
+
+private slots:
+    void onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
+
+private:
+    QList<SettingsItem*> widgetList_;
+    QHBoxLayout* embedLayout_;
+    QMap<SettingsItem*, QWidget*> groupPages_;
 };
 
 #endif // SETTINGSWIDGETBUILDER_H

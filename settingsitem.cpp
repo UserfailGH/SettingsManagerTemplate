@@ -7,15 +7,89 @@
 #include <QCheckBox>
 #include <QSpinBox>
 
-SettingsItem::SettingsItem(const QString& name, const QString& id,
+// Конструктор для обычных настроек
+SettingsItem::SettingsItem(SettingsItem* parent, const QString& name, const QString& id,
                            const QString& description, SettingsControlFactory* factory,
-                           bool enableSaving, const QString& groupName)
-    : name_(name), id_(id), description_(description), factory_(factory),
-    controlWidget_(nullptr), enableSaving_(enableSaving), groupName_(groupName) {}
+                           bool enableSaving)
+    : parentItem_(parent), name_(name), id_(id), description_(description),
+      factory_(factory), controlWidget_(nullptr), enableSaving_(enableSaving)
+{
+    if (parentItem_) {
+        parentItem_->appendChild(this);
+    }
+}
+
+// Конструктор для групп
+SettingsItem::SettingsItem(SettingsItem* parent, const QString& name, const QString& id,
+                           const QString& description)
+    : parentItem_(parent), name_(name), id_(id), description_(description),
+      factory_(nullptr), controlWidget_(nullptr), enableSaving_(false)
+{
+    if (parentItem_) {
+        parentItem_->appendChild(this);
+    }
+}
 
 SettingsItem::~SettingsItem() {
     delete factory_;
     delete controlWidget_;
+    qDeleteAll(childItems_);
+}
+
+// Методы для древовидной структуры
+SettingsItem* SettingsItem::parent() const {
+    return parentItem_;
+}
+
+void SettingsItem::appendChild(SettingsItem* child) {
+    childItems_.append(child);
+}
+
+SettingsItem* SettingsItem::child(int row) {
+    if (row < 0 || row >= childItems_.size())
+        return nullptr;
+    return childItems_.at(row);
+}
+
+int SettingsItem::childCount() const {
+    return childItems_.count();
+}
+
+int SettingsItem::row() const {
+    if (parentItem_)
+        return parentItem_->childItems_.indexOf(const_cast<SettingsItem*>(this));
+    return 0;
+}
+
+QList<SettingsItem*> SettingsItem::getAllChildren() const {
+    QList<SettingsItem*> allChildren;
+    for (SettingsItem* child : childItems_) {
+        allChildren.append(child);
+        allChildren.append(child->getAllChildren());
+    }
+    return allChildren;
+}
+
+SettingsItem* SettingsItem::findItemById(const QString& id) const {
+    if (id_ == id) return const_cast<SettingsItem*>(this);
+
+    for (SettingsItem* child : childItems_) {
+        SettingsItem* found = child->findItemById(id);
+        if (found) return found;
+    }
+
+    return nullptr;
+}
+
+SettingsItem* SettingsItem::findItemByName(const QString& name) const {
+    if (name_ == name) return const_cast<SettingsItem*>(this);
+
+    for (SettingsItem* child : childItems_) {
+        SettingsItem* found = child->findItemByName(name);
+        if (found) return found;
+    }
+
+    return nullptr;
 }
 
 QString SettingsItem::name() const {
@@ -30,16 +104,27 @@ QString SettingsItem::description() const {
     return description_;
 }
 
+QString SettingsItem::value() const {
+    return value_;
+}
+
+void SettingsItem::setValue(const QVariant& value) {
+    value_ = value.toString();
+}
+
 SettingsControlFactory* SettingsItem::factory() const {
     return factory_;
 }
 
 QHBoxLayout* SettingsItem::createWidget() const {
+    if (isGroup()) {
+        return nullptr;
+    }
+
     QHBoxLayout* rowLayout = new QHBoxLayout();
     QVBoxLayout* leftLayout = new QVBoxLayout();
     QLabel* nameLabel = new QLabel(name_);
     QLabel* hintLabel = new QLabel(description_);
-    hintLabel->setStyleSheet("color: gray;");
     leftLayout->addWidget(nameLabel);
     leftLayout->addWidget(hintLabel);
 
@@ -55,7 +140,7 @@ QWidget* SettingsItem::controlWidget() const {
 }
 
 QVariant SettingsItem::getValue() const {
-    if (!controlWidget_) {
+    if (!controlWidget_ || isGroup()) {
         return QVariant();
     }
 
@@ -78,11 +163,7 @@ QVariant SettingsItem::getValue() const {
 }
 
 bool SettingsItem::isSavingEnabled() const {
-    return enableSaving_;
-}
-
-QString SettingsItem::groupName() const {
-    return groupName_;
+    return enableSaving_ && !isGroup();
 }
 
 QComboBox* SettingsItem::comboBox() const {
