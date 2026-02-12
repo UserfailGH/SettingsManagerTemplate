@@ -2,15 +2,21 @@
 #define COMBOBOXFACTORY_H
 
 #include "settingscontrolfactory.h"
+#include <QtWidgets/QComboBox>
 #include <QStringList>
 
 class ComboBoxFactory : public SettingsControlFactory {
 public:
-    ComboBoxFactory(const QString& defaultValue, const QStringList& options);
+    explicit ComboBoxFactory(const QStringList& items, int defaultIndex = 0);
+
+    explicit ComboBoxFactory(const QString& defaultValue, const QStringList& items);
+
     QWidget* create() const override;
+    QVariant defaultValue() const override;
+
 private:
-    QString defaultValue_;
-    QStringList options_;
+    QStringList items_;
+    int defaultIndex_;
 };
 
-#endif
+#endif // COMBOBOXFACTORY_H

@@ -1,179 +1,174 @@
 #include "settingsitem.h"
+#include "settingscontrolfactory.h"
+
 #include <QHBoxLayout>
-#include <QVBoxLayout>
 #include <QLabel>
-#include <QLineEdit>
 #include <QComboBox>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QLineEdit>
+#include <QPushButton>
 
-// Конструктор для обычных настроек
-SettingsItem::SettingsItem(SettingsItem* parent, const QString& name, const QString& id,
-                           const QString& description, SettingsControlFactory* factory,
-                           bool enableSaving)
-    : parentItem_(parent), name_(name), id_(id), description_(description),
-      factory_(factory), controlWidget_(nullptr), enableSaving_(enableSaving)
+SettingsItem::SettingsItem(SettingsItem* parent,
+                           const QString& name,
+                           const QString& id,
+                           const QString& description,
+                           SettingsControlFactory* factory,
+                           bool savingEnabled)
+    : parent_(parent), name_(name), id_(id), description_(description),
+      factory_(factory), savingEnabled_(savingEnabled)
 {
-    if (parentItem_) {
-        parentItem_->appendChild(this);
+    if (parent_) {
+        parent_->addChild(this);
     }
 }
 
-// Конструктор для групп
-SettingsItem::SettingsItem(SettingsItem* parent, const QString& name, const QString& id,
-                           const QString& description)
-    : parentItem_(parent), name_(name), id_(id), description_(description),
-      factory_(nullptr), controlWidget_(nullptr), enableSaving_(false)
+SettingsItem::~SettingsItem()
 {
-    if (parentItem_) {
-        parentItem_->appendChild(this);
-    }
-}
-
-SettingsItem::~SettingsItem() {
-    delete factory_;
+    qDeleteAll(children_);
     delete controlWidget_;
-    qDeleteAll(childItems_);
 }
 
-// Методы для древовидной структуры
-SettingsItem* SettingsItem::parent() const {
-    return parentItem_;
+void SettingsItem::setFactory(SettingsControlFactory* factory, bool savingEnabled)
+{
+    factory_ = factory;
+    savingEnabled_ = savingEnabled;
 }
 
-void SettingsItem::appendChild(SettingsItem* child) {
-    childItems_.append(child);
-}
-
-SettingsItem* SettingsItem::child(int row) {
-    if (row < 0 || row >= childItems_.size())
-        return nullptr;
-    return childItems_.at(row);
-}
-
-int SettingsItem::childCount() const {
-    return childItems_.count();
-}
-
-int SettingsItem::row() const {
-    if (parentItem_)
-        return parentItem_->childItems_.indexOf(const_cast<SettingsItem*>(this));
-    return 0;
-}
-
-QList<SettingsItem*> SettingsItem::getAllChildren() const {
-    QList<SettingsItem*> allChildren;
-    for (SettingsItem* child : childItems_) {
-        allChildren.append(child);
-        allChildren.append(child->getAllChildren());
+QVariant SettingsItem::defaultValue() const
+{
+    if (factory_) {
+        return factory_->defaultValue();
     }
-    return allChildren;
+    return QVariant();
 }
 
-SettingsItem* SettingsItem::findItemById(const QString& id) const {
-    if (id_ == id) return const_cast<SettingsItem*>(this);
+void SettingsItem::resetToDefault()
+{
+    if (!factory_ || !controlWidget_) return;
 
-    for (SettingsItem* child : childItems_) {
-        SettingsItem* found = child->findItemById(id);
-        if (found) return found;
+    QWidget* wrapper = controlWidget_;
+    QHBoxLayout* wrapperLayout = qobject_cast<QHBoxLayout*>(wrapper->layout());
+    if (!wrapperLayout) return;
+
+    QWidget* oldControl = nullptr;
+    for (int i = 0; i < wrapperLayout->count(); ++i) {
+        QWidget* w = wrapperLayout->itemAt(i)->widget();
+        if (w && w != wrapper->findChild<QPushButton*>()) {
+            oldControl = w;
+            break;
+        }
     }
+    if (!oldControl) return;
 
+    QWidget* newControl = factory_->create();
+
+    wrapperLayout->removeWidget(oldControl);
+    delete oldControl;
+    wrapperLayout->insertWidget(0, newControl);
+
+    wrapper->update();
+}
+
+void SettingsItem::addChild(SettingsItem* child)
+{
+    children_.append(child);
+}
+
+SettingsItem* SettingsItem::child(int index) const
+{
+    if (index >= 0 && index < children_.size()) {
+        return children_[index];
+    }
     return nullptr;
 }
 
-SettingsItem* SettingsItem::findItemByName(const QString& name) const {
-    if (name_ == name) return const_cast<SettingsItem*>(this);
+QHBoxLayout* SettingsItem::createWidget()
+{
+    if (!factory_) return nullptr;
 
-    for (SettingsItem* child : childItems_) {
-        SettingsItem* found = child->findItemByName(name);
-        if (found) return found;
+    QHBoxLayout* layout = new QHBoxLayout();
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(8);
+
+    QLabel* label = new QLabel(name_ + ":");
+    label->setMinimumWidth(150);
+    label->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+    layout->addWidget(label);
+
+    QWidget* control = factory_->create();
+
+    controlWidget_ = SettingsControlFactory::createControlWithReset(this, control);
+    layout->addWidget(controlWidget_, 1);
+
+    return layout;
+}
+
+QVariant SettingsItem::getValue() const
+{
+    if (!controlWidget_) return QVariant();
+
+    if (auto* combo = qobject_cast<QComboBox*>(controlWidget_)) {
+        return combo->currentText();
+    }
+    if (auto* check = qobject_cast<QCheckBox*>(controlWidget_)) {
+        return check->isChecked();
+    }
+    if (auto* spin = qobject_cast<QSpinBox*>(controlWidget_)) {
+        return spin->value();
+    }
+    if (auto* edit = qobject_cast<QLineEdit*>(controlWidget_)) {
+        return edit->text();
     }
 
-    return nullptr;
-}
-
-QString SettingsItem::name() const {
-    return name_;
-}
-
-QString SettingsItem::id() const {
-    return id_;
-}
-
-QString SettingsItem::description() const {
-    return description_;
-}
-
-QString SettingsItem::value() const {
-    return value_;
-}
-
-void SettingsItem::setValue(const QVariant& value) {
-    value_ = value.toString();
-}
-
-SettingsControlFactory* SettingsItem::factory() const {
-    return factory_;
-}
-
-QHBoxLayout* SettingsItem::createWidget() const {
-    if (isGroup()) {
-        return nullptr;
-    }
-
-    QHBoxLayout* rowLayout = new QHBoxLayout();
-    QVBoxLayout* leftLayout = new QVBoxLayout();
-    QLabel* nameLabel = new QLabel(name_);
-    QLabel* hintLabel = new QLabel(description_);
-    leftLayout->addWidget(nameLabel);
-    leftLayout->addWidget(hintLabel);
-
-    controlWidget_ = factory_->create();
-    rowLayout->addLayout(leftLayout);
-    rowLayout->addWidget(controlWidget_, 1);
-
-    return rowLayout;
-}
-
-QWidget* SettingsItem::controlWidget() const {
-    return controlWidget_;
-}
-
-QVariant SettingsItem::getValue() const {
-    if (!controlWidget_ || isGroup()) {
-        return QVariant();
-    }
-
-    if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(controlWidget_)) {
-        return lineEdit->text();
-    } else if (QComboBox* comboBox = qobject_cast<QComboBox*>(controlWidget_)) {
-        return comboBox->currentText();
-    } else if (QCheckBox* checkBox = qobject_cast<QCheckBox*>(controlWidget_)) {
-        return checkBox->isChecked();
-    } else if (QSpinBox* spinBox = qobject_cast<QSpinBox*>(controlWidget_)) {
-        return spinBox->value();
-    } else if (QWidget* fileBrowse = qobject_cast<QWidget*>(controlWidget_)) {
-        QLineEdit* lineEdit = fileBrowse->findChild<QLineEdit*>();
-        if (lineEdit) {
-            return lineEdit->text();
+    if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
+        if (auto* combo = wrapper->findChild<QComboBox*>()) {
+            return combo->currentText();
+        }
+        if (auto* check = wrapper->findChild<QCheckBox*>()) {
+            return check->isChecked();
+        }
+        if (auto* spin = wrapper->findChild<QSpinBox*>()) {
+            return spin->value();
+        }
+        if (auto* edit = wrapper->findChild<QLineEdit*>()) {
+            return edit->text();
         }
     }
 
     return QVariant();
 }
 
-bool SettingsItem::isSavingEnabled() const {
-    return enableSaving_ && !isGroup();
-}
-
-QComboBox* SettingsItem::comboBox() const {
+QComboBox* SettingsItem::comboBox() const
+{
+    if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
+        return wrapper->findChild<QComboBox*>();
+    }
     return qobject_cast<QComboBox*>(controlWidget_);
 }
 
-QCheckBox* SettingsItem::checkBox() const {
+QCheckBox* SettingsItem::checkBox() const
+{
+    if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
+        return wrapper->findChild<QCheckBox*>();
+    }
     return qobject_cast<QCheckBox*>(controlWidget_);
 }
 
-QSpinBox* SettingsItem::spinBox() const {
+QSpinBox* SettingsItem::spinBox() const
+{
+    if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
+        return wrapper->findChild<QSpinBox*>();
+    }
     return qobject_cast<QSpinBox*>(controlWidget_);
+}
+
+QList<SettingsItem*> SettingsItem::getAllChildren() const
+{
+    QList<SettingsItem*> result;
+    for (SettingsItem* child : children_) {
+        result.append(child);
+        result.append(child->getAllChildren());
+    }
+    return result;
 }

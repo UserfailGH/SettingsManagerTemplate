@@ -1,10 +1,15 @@
 #include "checkboxfactory.h"
-#include <QCheckBox>
+#include <QVariant>
 
-CheckBoxFactory::CheckBoxFactory(const bool defaultValue) : defaultValue_(defaultValue) {}
+CheckBoxFactory::CheckBoxFactory(const QVariant& defaultValue)
+    : defaultValue_(defaultValue) {}
 
 QWidget* CheckBoxFactory::create() const {
-    QCheckBox* checkBox = new QCheckBox();
-    checkBox->setChecked(defaultValue_);
-    return checkBox;
+    QCheckBox* cb = new QCheckBox();
+    cb->setChecked(defaultValue_.toBool());
+    return cb;
+}
+
+QVariant CheckBoxFactory::defaultValue() const {
+    return defaultValue_;
 }
