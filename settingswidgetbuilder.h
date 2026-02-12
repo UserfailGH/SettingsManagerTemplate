@@ -10,6 +10,7 @@ class SettingsItem;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QStackedWidget;
+class QPushButton;
 
 class SettingsWidgetBuilder : public QObject
 {
@@ -32,6 +33,7 @@ private:
     void saveSettings();
     void applyValueToWidget(SettingsItem* item, const QVariant& value);
     void connectSignalsForAutoSave();
+    void resetAllSettings();
 
 private slots:
     void onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
@@ -40,6 +42,7 @@ private:
     QList<SettingsItem*> widgetList_;
     QHBoxLayout* embedLayout_;
     QMap<SettingsItem*, QWidget*> groupPages_;
+    QPushButton* resetAllButton_;
 };
 
-#endif // SETTINGSWIDGETBUILDER_H
+#endif

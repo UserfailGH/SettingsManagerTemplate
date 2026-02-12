@@ -2,14 +2,18 @@
 #define CHECKBOXFACTORY_H
 
 #include "settingscontrolfactory.h"
+#include <QtWidgets/QCheckBox>
+#include <QVariant>
 
 class CheckBoxFactory : public SettingsControlFactory {
 public:
-    CheckBoxFactory(const bool defaultValue);
-    QWidget* create() const override;
-private:
-    bool defaultValue_;
+    explicit CheckBoxFactory(const QVariant& defaultValue = false);
 
+    QWidget* create() const override;
+    QVariant defaultValue() const override;
+
+private:
+    QVariant defaultValue_;
 };
 
-#endif
+#endif // CHECKBOXFACTORY_H

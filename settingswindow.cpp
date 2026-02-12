@@ -17,12 +17,24 @@
 #include <QLabel>
 #include <QTreeWidgetItem>
 #include <QCloseEvent>
+#include <QPushButton>
+#include <QSettings>
+#include <QMessageBox>
+#include <QDebug>
+#include <QComboBox>
+#include <QCheckBox>
+#include <QSpinBox>
+#include <QLineEdit>
+#include <QColorDialog>
+#include <QFileDialog>
+
+#include <QStringList>
+#include <QVariant>
 
 SettingsWindow::SettingsWindow(QWidget* parent) : QWidget(parent) {
     setupUI();
     createSettingsTree();
     setupConnections();
-
     loadSettings();
     connectSignalsForAutoSave();
 }
@@ -32,314 +44,273 @@ SettingsWindow::~SettingsWindow() {
 }
 
 void SettingsWindow::setupUI() {
-    QHBoxLayout* mainLayout = new QHBoxLayout(this);
+    QVBoxLayout* mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
 
-    // Древовидная панель
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    resetAllButton = new QPushButton("Reset All to Default");
+    resetGroupButton = new QPushButton("Reset Current Group");
+    buttonLayout->addWidget(resetAllButton);
+    buttonLayout->addWidget(resetGroupButton);
+    buttonLayout->addStretch();
+
+    QHBoxLayout* contentLayout = new QHBoxLayout();
     treeWidget = new QTreeWidget();
     treeWidget->setFixedWidth(250);
     treeWidget->setHeaderHidden(true);
 
-    // Область содержимого
     stackedWidget = new QStackedWidget();
 
-    mainLayout->addWidget(treeWidget);
-    mainLayout->addWidget(stackedWidget, 1);
+    contentLayout->addWidget(treeWidget);
+    contentLayout->addWidget(stackedWidget, 1);
+
+    mainLayout->addLayout(buttonLayout);
+    mainLayout->addLayout(contentLayout);
 
     setWindowTitle("Settings");
     setMinimumSize(900, 600);
 }
 
 void SettingsWindow::createSettingsTree() {
-    // Создаем корневой элемент (группа)
     rootItem = new SettingsItem(nullptr, "Settings", "root", "Application Settings");
 
-    // Создаем группы (используем конструктор для групп)
     SettingsItem* mainGroup = new SettingsItem(rootItem, "Main Settings", "main_group", "General application settings");
     SettingsItem* templateGroup = new SettingsItem(rootItem, "Template Settings", "template_group", "File template settings");
     SettingsItem* colorGroup = new SettingsItem(rootItem, "Appearance", "appearance_group", "Visual appearance settings");
 
-    // Добавляем настройки в группу Main (используем конструктор для настроек)
-    SettingsItem* languageItem = new SettingsItem(mainGroup, "Language", "1", "Select interface language",
-                                                  new ComboBoxFactory("English", QStringList() << "English" << "Russian" << "Spanish"), true);
+    auto* languageItem = new SettingsItem(mainGroup, "Language", "1", "Select interface language");
+    languageItem->setFactory(new ComboBoxFactory("English", {"English", "Russian", "Spanish"}), true);
 
-    SettingsItem* autostartItem = new SettingsItem(mainGroup, "Autostart", "2", "Run application on system startup",
-                                                   new CheckBoxFactory(true), true);
+    auto* autostartItem = new SettingsItem(mainGroup, "Autostart", "2", "Run application on system startup");
+    autostartItem->setFactory(new CheckBoxFactory(true), true);
 
-    SettingsItem* timeoutItem = new SettingsItem(mainGroup, "Timeout", "3", "Request timeout in milliseconds",
-                                                 new SpinBoxFactory(300, 100, 10000), true);
+    auto* timeoutItem = new SettingsItem(mainGroup, "Timeout", "3", "Request timeout in milliseconds");
+    timeoutItem->setFactory(new SpinBoxFactory(300, 100, 10000), true);
 
-    // Добавляем настройки в группу Template
-    SettingsItem* fileTemplateItem = new SettingsItem(templateGroup, "File Template", "4", "Template for file searching",
-                                                      new LineEditFactory("*.png"), true);
+    auto* fileTemplateItem = new SettingsItem(templateGroup, "File Template", "4", "Template for file searching");
+    fileTemplateItem->setFactory(new LineEditFactory("*.png"), true);
 
-    SettingsItem* storageItem = new SettingsItem(templateGroup, "Storage Path", "5", "Location where files will be stored",
-                                                 new FileBrowseFactory(new LineEditFactory("D:/storage"), new PushButtonFactory("Browse...")), true);
+    auto* storageItem = new SettingsItem(templateGroup, "Storage Path", "5", "Location where files will be stored");
+    storageItem->setFactory(new FileBrowseFactory(new LineEditFactory("D:/storage"), new PushButtonFactory("Browse...")), true);
 
-    // Добавляем настройки в группу Appearance
-    SettingsItem* themeItem = new SettingsItem(colorGroup, "Theme Color", "6", "Choose application theme color",
-                                               new ColorDialogFactory(new LineEditFactory("#0078d4"), new PushButtonFactory("Choose Color")), true);
+    auto* themeItem = new SettingsItem(colorGroup, "Theme Color", "6", "Choose application theme color");
+    themeItem->setFactory(new ColorDialogFactory(new LineEditFactory("#0078d4"), new PushButtonFactory("Choose Color")), true);
 
-    SettingsItem* fontSizeItem = new SettingsItem(colorGroup, "Font Size", "7", "Application font size",
-                                                  new SpinBoxFactory(12, 8, 24), true);
+    auto* fontSizeItem = new SettingsItem(colorGroup, "Font Size", "7", "Application font size");
+    fontSizeItem->setFactory(new SpinBoxFactory(12, 8, 24), true);
 
-    // Строим дерево в QTreeWidget
     buildTreeWidget();
-
-    // Создаем страницы для всех элементов (только для групп)
     createPagesForGroups();
 }
 
 void SettingsWindow::buildTreeWidget() {
     treeWidget->clear();
-
-    // Рекурсивно добавляем элементы в QTreeWidget
     addItemToTreeWidget(rootItem, nullptr);
-
-    // Разворачиваем корневые группы
     treeWidget->expandAll();
 }
 
-void SettingsWindow::addItemToTreeWidget(SettingsItem* settingsItem, QTreeWidgetItem* parentTreeItem) {
-    QTreeWidgetItem* treeItem;
-    if (parentTreeItem) {
-        treeItem = new QTreeWidgetItem(parentTreeItem);
-    } else {
-        treeItem = new QTreeWidgetItem(treeWidget);
-    }
+void SettingsWindow::addItemToTreeWidget(SettingsItem* item, QTreeWidgetItem* parent) {
+    auto* treeItem = parent ? new QTreeWidgetItem(parent) : new QTreeWidgetItem(treeWidget);
+    treeItem->setText(0, item->name());
+    treeItem->setData(0, Qt::UserRole, QVariant::fromValue(item));
 
-    treeItem->setText(0, settingsItem->name());
-    treeItem->setData(0, Qt::UserRole, QVariant::fromValue(settingsItem));
-
-    // Для групп делаем жирный шрифт
-    if (settingsItem->isGroup()) {
+    if (item->isGroup()) {
         QFont font = treeItem->font(0);
         font.setBold(true);
         treeItem->setFont(0, font);
     }
 
-    // Рекурсивно добавляем детей
-    for (int i = 0; i < settingsItem->childCount(); ++i) {
-        addItemToTreeWidget(settingsItem->child(i), treeItem);
+    for (int i = 0; i < item->childCount(); ++i) {
+        addItemToTreeWidget(item->child(i), treeItem);
     }
 }
 
 void SettingsWindow::createPagesForGroups() {
-    // Создаем страницы только для групповых элементов
-    QList<SettingsItem*> allItems = rootItem->getAllChildren();
-    allItems.prepend(rootItem);
-
-    for (SettingsItem* item : allItems) {
+    for (SettingsItem* item : rootItem->getAllChildren()) {
         if (item->isGroup()) {
             createPageForGroup(item);
         }
     }
 }
 
-void SettingsWindow::createPageForGroup(SettingsItem* groupItem) {
-    QScrollArea* scrollArea = new QScrollArea();
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFrameShape(QFrame::NoFrame);
+void SettingsWindow::createPageForGroup(SettingsItem* group) {
+    auto* scroll = new QScrollArea();
+    scroll->setWidgetResizable(true);
+    scroll->setFrameShape(QFrame::NoFrame);
 
-    QWidget* contentWidget = new QWidget();
-    QVBoxLayout* contentLayout = new QVBoxLayout(contentWidget);
-    contentLayout->setSpacing(15);
-    contentLayout->setContentsMargins(25, 25, 25, 25);
+    auto* content = new QWidget();
+    auto* layout = new QVBoxLayout(content);
+    layout->setSpacing(15);
+    layout->setContentsMargins(25, 25, 25, 25);
 
-    // Заголовок группы
-    QLabel* titleLabel = new QLabel(groupItem->name());
-    QFont titleFont = titleLabel->font();
-    titleFont.setPointSize(16);
-    titleFont.setBold(true);
-    titleLabel->setFont(titleFont);
-    contentLayout->addWidget(titleLabel);
+    auto* title = new QLabel(group->name());
+    QFont f = title->font();
+    f.setPointSize(16);
+    f.setBold(true);
+    title->setFont(f);
+    layout->addWidget(title);
 
-    // Описание группы
-    if (!groupItem->description().isEmpty()) {
-        QLabel* descLabel = new QLabel(groupItem->description());
-        descLabel->setWordWrap(true);
-        contentLayout->addWidget(descLabel);
+    if (!group->description().isEmpty()) {
+        auto* desc = new QLabel(group->description());
+        desc->setWordWrap(true);
+        layout->addWidget(desc);
     }
 
-    // Добавляем настройки этой группы (только непосредственные дети)
     bool hasSettings = false;
-    for (int i = 0; i < groupItem->childCount(); ++i) {
-        SettingsItem* child = groupItem->child(i);
+    for (int i = 0; i < group->childCount(); ++i) {
+        SettingsItem* child = group->child(i);
         if (!child->isGroup()) {
-            QHBoxLayout* itemLayout = child->createWidget();
-            if (itemLayout) {
-                // Добавляем разделитель между настройками
+            QHBoxLayout* row = child->createWidget();
+            if (row) {
                 if (hasSettings) {
-                    QFrame* separator = new QFrame();
-                    separator->setFrameShape(QFrame::HLine);
-                    separator->setFrameShadow(QFrame::Sunken);
-                    contentLayout->addWidget(separator);
+                    auto* sep = new QFrame();
+                    sep->setFrameShape(QFrame::HLine);
+                    sep->setFrameShadow(QFrame::Sunken);
+                    layout->addWidget(sep);
                 }
-
-                contentLayout->addLayout(itemLayout);
+                layout->addLayout(row);
                 hasSettings = true;
             }
         }
     }
 
-    // Если в группе нет настроек, показываем сообщение
     if (!hasSettings) {
-        QLabel* emptyLabel = new QLabel("No settings available in this group");
-        emptyLabel->setAlignment(Qt::AlignCenter);
-        contentLayout->addWidget(emptyLabel);
+        auto* empty = new QLabel("No settings available in this group");
+        empty->setAlignment(Qt::AlignCenter);
+        layout->addWidget(empty);
     }
 
-    contentLayout->addStretch();
-    scrollArea->setWidget(contentWidget);
+    layout->addStretch();
+    scroll->setWidget(content);
 
-    // Сохраняем связь между SettingsItem и страницей
-    groupPages[groupItem] = scrollArea;
-    stackedWidget->addWidget(scrollArea);
+    groupPages[group] = scroll;
+    stackedWidget->addWidget(scroll);
 }
 
+// === Подключения ===
 void SettingsWindow::setupConnections() {
-    connect(treeWidget, &QTreeWidget::currentItemChanged,
-            this, &SettingsWindow::onTreeItemChanged);
+    connect(treeWidget, &QTreeWidget::currentItemChanged, this, &SettingsWindow::onTreeItemChanged);
+    connect(resetAllButton, &QPushButton::clicked, this, &SettingsWindow::onResetAllClicked);
+    connect(resetGroupButton, &QPushButton::clicked, this, &SettingsWindow::onResetGroupClicked);
 }
 
-void SettingsWindow::onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous) {
+void SettingsWindow::onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem*) {
     if (!current) return;
-
-    SettingsItem* settingsItem = current->data(0, Qt::UserRole).value<SettingsItem*>();
-    if (settingsItem && settingsItem->isGroup()) {
-        if (groupPages.contains(settingsItem)) {
-            stackedWidget->setCurrentWidget(groupPages[settingsItem]);
-        }
+    auto* item = current->data(0, Qt::UserRole).value<SettingsItem*>();
+    if (item && item->isGroup() && groupPages.contains(item)) {
+        stackedWidget->setCurrentWidget(groupPages[item]);
     }
 }
 
-#include <QSettings>
-#include <QDebug>
+// === Сброс ===
+void SettingsWindow::onResetAllClicked() {
+    if (QMessageBox::question(this, "Reset All", "Reset ALL settings to default?",
+                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+        for (SettingsItem* item : rootItem->getAllChildren()) {
+            if (!item->isGroup() && item->isSavingEnabled()) {
+                item->resetToDefault();
+            }
+        }
+        saveSettings();
+        QMessageBox::information(this, "Reset", "All settings reset to default.");
+    }
+}
+
+void SettingsWindow::onResetGroupClicked() {
+    auto* current = treeWidget->currentItem();
+    if (!current) {
+        QMessageBox::warning(this, "Error", "Please select a group.");
+        return;
+    }
+
+    auto* group = current->data(0, Qt::UserRole).value<SettingsItem*>();
+    if (!group || !group->isGroup()) {
+        QMessageBox::warning(this, "Error", "Please select a valid group.");
+        return;
+    }
+
+    if (QMessageBox::question(this, "Reset Group", QString("Reset '%1'?").arg(group->name()),
+                              QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
+        for (int i = 0; i < group->childCount(); ++i) {
+            auto* child = group->child(i);
+            if (!child->isGroup() && child->isSavingEnabled()) {
+                child->resetToDefault();  // ← Сохраняет форматирование
+            }
+        }
+        saveSettings();
+        QMessageBox::information(this, "Reset", QString("'%1' reset.").arg(group->name()));
+    }
+}
 
 void SettingsWindow::loadSettings() {
-    qDebug() << "=== LOADING SETTINGS ===";
-    QSettings settings("TestLabs", "TestSettings");
-
-    qDebug() << "Settings file:" << settings.fileName();
-
-    // Собираем все элементы которые можно сохранять
-    QList<SettingsItem*> allItems = rootItem->getAllChildren();
-    allItems.prepend(rootItem);
-
-    int loadedCount = 0;
-    for (SettingsItem* item : allItems) {
+    QSettings s("TestLabs", "TestSettings");
+    for (SettingsItem* item : rootItem->getAllChildren()) {
         if (!item->isSavingEnabled() || item->isGroup()) continue;
-
-        QString settingsPath = buildSettingsPath(item);
-        QVariant defaultValue = item->getValue();
-        QVariant savedValue = settings.value(settingsPath, defaultValue);
-
-        qDebug() << "Loading:" << item->name() << "Path:" << settingsPath
-                 << "Default:" << defaultValue << "Saved:" << savedValue;
-
-        if (savedValue != defaultValue) {
-            applyValueToWidget(item, savedValue);
-            loadedCount++;
+        QString path = buildSettingsPath(item);
+        QVariant saved = s.value(path, item->defaultValue());
+        if (saved != item->defaultValue()) {
+            applyValueToWidget(item, saved);
         }
     }
-
-    qDebug() << "Loaded" << loadedCount << "settings";
 }
 
 void SettingsWindow::saveSettings() {
-    qDebug() << "=== SAVING SETTINGS ===";
-    QSettings settings("TestLabs", "TestSettings");
-
-    // Собираем все элементы которые можно сохранять
-    QList<SettingsItem*> allItems = rootItem->getAllChildren();
-    allItems.prepend(rootItem);
-
-    int savedCount = 0;
-    for (SettingsItem* item : allItems) {
+    QSettings s("TestLabs", "TestSettings");
+    for (SettingsItem* item : rootItem->getAllChildren()) {
         if (!item->isSavingEnabled() || item->isGroup()) continue;
-
-        QString settingsPath = buildSettingsPath(item);
-        QVariant currentValue = item->getValue();
-
-        qDebug() << "Saving:" << item->name() << "Path:" << settingsPath << "Value:" << currentValue;
-
-        settings.setValue(settingsPath, currentValue);
-        savedCount++;
+        s.setValue(buildSettingsPath(item), item->getValue());
     }
-
-    settings.sync();
-    qDebug() << "Saved" << savedCount << "settings";
+    s.sync();
 }
 
 QString SettingsWindow::buildSettingsPath(SettingsItem* item) const {
-    QStringList pathParts;
-    SettingsItem* current = item;
-
-    // Собираем путь от корня до элемента
-    while (current) {
-        if (!current->id().isEmpty()) {
-            pathParts.prepend(current->id());
-        }
-        current = current->parent();
+    QStringList parts;
+    SettingsItem* cur = item;
+    while (cur && !cur->id().isEmpty()) {
+        parts.prepend(cur->id());
+        cur = cur->parent();
     }
-
-    return pathParts.join("/");
+    return parts.join("/");
 }
 
 void SettingsWindow::applyValueToWidget(SettingsItem* item, const QVariant& value) {
-    if (QComboBox* comboBox = item->comboBox()) {
-        int index = comboBox->findText(value.toString());
-        if (index >= 0) comboBox->setCurrentIndex(index);
-    } else if (QCheckBox* checkBox = item->checkBox()) {
-        checkBox->setChecked(value.toBool());
-    } else if (QSpinBox* spinBox = item->spinBox()) {
-        spinBox->setValue(value.toInt());
-    } else if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(item->controlWidget())) {
-        lineEdit->setText(value.toString());
-    } else if (QWidget* compositeWidget = item->controlWidget()) {
-        QLineEdit* lineEdit = compositeWidget->findChild<QLineEdit*>();
-        if (lineEdit) lineEdit->setText(value.toString());
+    if (auto* cb = item->comboBox()) {
+        int idx = cb->findText(value.toString());
+        if (idx >= 0) cb->setCurrentIndex(idx);
+    } else if (auto* cb = item->checkBox()) {
+        cb->setChecked(value.toBool());
+    } else if (auto* sb = item->spinBox()) {
+        sb->setValue(value.toInt());
+    } else if (auto* le = qobject_cast<QLineEdit*>(item->controlWidget())) {
+        le->setText(value.toString());
+    } else if (auto* wrapper = item->controlWidget()) {
+        if (auto* le = wrapper->findChild<QLineEdit*>()) {
+            le->setText(value.toString());
+        }
     }
 }
 
 void SettingsWindow::connectSignalsForAutoSave() {
-    qDebug() << "=== CONNECTING AUTO-SAVE SIGNALS ===";
-
-    // Собираем все элементы которые можно сохранять
-    QList<SettingsItem*> allItems = rootItem->getAllChildren();
-    allItems.prepend(rootItem);
-
-    int connectedCount = 0;
-    for (SettingsItem* item : allItems) {
+    for (SettingsItem* item : rootItem->getAllChildren()) {
         if (!item->isSavingEnabled() || item->isGroup()) continue;
 
-        if (QComboBox* comboBox = item->comboBox()) {
-            connect(comboBox, QOverload<int>::of(&QComboBox::currentIndexChanged),
-                    this, &SettingsWindow::saveSettings);
-            connectedCount++;
-        } else if (QCheckBox* checkBox = item->checkBox()) {
-            connect(checkBox, &QCheckBox::toggled, this, &SettingsWindow::saveSettings);
-            connectedCount++;
-        } else if (QSpinBox* spinBox = item->spinBox()) {
-            connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), this, &SettingsWindow::saveSettings);
-            connectedCount++;
-        } else if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(item->controlWidget())) {
-            connect(lineEdit, &QLineEdit::textChanged, this, &SettingsWindow::saveSettings);
-            connectedCount++;
-        } else if (QWidget* compositeWidget = item->controlWidget()) {
-            QLineEdit* lineEdit = compositeWidget->findChild<QLineEdit*>();
-            if (lineEdit) {
-                connect(lineEdit, &QLineEdit::textChanged, this, &SettingsWindow::saveSettings);
-                connectedCount++;
+        if (auto* cb = item->comboBox()) {
+            connect(cb, QOverload<int>::of(&QComboBox::currentIndexChanged), this, &SettingsWindow::saveSettings, Qt::UniqueConnection);
+        } else if (auto* cb = item->checkBox()) {
+            connect(cb, &QCheckBox::toggled, this, &SettingsWindow::saveSettings, Qt::UniqueConnection);
+        } else if (auto* sb = item->spinBox()) {
+            connect(sb, QOverload<int>::of(&QSpinBox::valueChanged), this, &SettingsWindow::saveSettings, Qt::UniqueConnection);
+        } else if (auto* le = qobject_cast<QLineEdit*>(item->controlWidget())) {
+            connect(le, &QLineEdit::textChanged, this, &SettingsWindow::saveSettings, Qt::UniqueConnection);
+        } else if (auto* wrapper = item->controlWidget()) {
+            if (auto* le = wrapper->findChild<QLineEdit*>()) {
+                connect(le, &QLineEdit::textChanged, this, &SettingsWindow::saveSettings, Qt::UniqueConnection);
             }
         }
     }
-
-    qDebug() << "Connected" << connectedCount << "signals";
 }
 
 void SettingsWindow::closeEvent(QCloseEvent* event) {
-    qDebug() << "=== WINDOW CLOSING - SAVING SETTINGS ===";
     saveSettings();
     event->accept();
 }

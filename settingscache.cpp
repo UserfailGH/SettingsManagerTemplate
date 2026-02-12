@@ -1,38 +1,90 @@
-#ifndef SETTINGSCACHE_H
-#define SETTINGSCACHE_H
+#include "settingscache.h"
+#include <QSettings>
 
-#include <QObject>
-#include <QMap>
-#include <QVariant>
-#include <QReadWriteLock>
+SettingsCache& SettingsCache::instance() {
+    static SettingsCache instance;
+    return instance;
+}
 
-class SettingsCache : public QObject
+SettingsCache::SettingsCache(QObject* parent)
+    : QObject(parent)
 {
-    Q_OBJECT
+}
 
-public:
-    static SettingsCache& instance();
+void SettingsCache::setValue(const QString& group, const QString& key, const QVariant& value) {
+    QWriteLocker locker(&lock);
+    cache[group][key] = value;
+}
 
-    void setValue(const QString& group, const QString& key, const QVariant& value);
-    QVariant getValue(const QString& group, const QString& key, const QVariant& defaultValue = QVariant()) const;
-    bool contains(const QString& group, const QString& key) const;
-    void remove(const QString& group, const QString& key);
-    void clear();
-    void clearGroup(const QString& group);
+QVariant SettingsCache::getValue(const QString& group, const QString& key, const QVariant& defaultValue) const {
+    QReadLocker locker(&lock);
+    auto groupIt = cache.find(group);
+    if (groupIt != cache.end()) {
+        auto keyIt = groupIt->find(key);
+        if (keyIt != groupIt->end()) {
+            return *keyIt;
+        }
+    }
+    return defaultValue;
+}
 
-    // Методы для массовой загрузки/сохранения
-    void loadFromSettings();
-    void saveToSettings();
+bool SettingsCache::contains(const QString& group, const QString& key) const {
+    QReadLocker locker(&lock);
+    auto groupIt = cache.find(group);
+    if (groupIt != cache.end()) {
+        return groupIt->contains(key);
+    }
+    return false;
+}
 
-private:
-    SettingsCache(QObject* parent = nullptr);
-    ~SettingsCache() = default;
+void SettingsCache::remove(const QString& group, const QString& key) {
+    QWriteLocker locker(&lock);
+    auto groupIt = cache.find(group);
+    if (groupIt != cache.end()) {
+        groupIt->remove(key);
+        if (groupIt->isEmpty()) {
+            cache.erase(groupIt);
+        }
+    }
+}
 
-    SettingsCache(const SettingsCache&) = delete;
-    SettingsCache& operator=(const SettingsCache&) = delete;
+void SettingsCache::clear() {
+    QWriteLocker locker(&lock);
+    cache.clear();
+}
 
-    QMap<QString, QMap<QString, QVariant>> cache; // group -> (key -> value)
-    mutable QReadWriteLock lock;
-};
+void SettingsCache::clearGroup(const QString& group) {
+    QWriteLocker locker(&lock);
+    cache.remove(group);
+}
 
-#endif // SETTINGSCACHE_H
+void SettingsCache::loadFromSettings() {
+    QWriteLocker locker(&lock);
+    cache.clear();
+
+    QSettings settings;
+    QStringList groups = settings.childGroups();
+
+    for (const QString& group : groups) {
+        settings.beginGroup(group);
+        QStringList keys = settings.childKeys();
+        for (const QString& key : keys) {
+            cache[group][key] = settings.value(key);
+        }
+        settings.endGroup();
+    }
+}
+
+void SettingsCache::saveToSettings() {
+    QReadLocker locker(&lock);
+    QSettings settings;
+
+    for (auto groupIt = cache.begin(); groupIt != cache.end(); ++groupIt) {
+        settings.beginGroup(groupIt.key());
+        for (auto keyIt = groupIt->begin(); keyIt != groupIt->end(); ++keyIt) {
+            settings.setValue(keyIt.key(), keyIt.value());
+        }
+        settings.endGroup();
+    }
+    settings.sync();
+}

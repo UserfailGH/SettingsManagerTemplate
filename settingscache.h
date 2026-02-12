@@ -20,7 +20,6 @@ public:
     void clear();
     void clearGroup(const QString& group);
 
-    // Методы для массовой загрузки/сохранения
     void loadFromSettings();
     void saveToSettings();
 
@@ -31,7 +30,7 @@ private:
     SettingsCache(const SettingsCache&) = delete;
     SettingsCache& operator=(const SettingsCache&) = delete;
 
-    QMap<QString, QMap<QString, QVariant>> cache; // group -> (key -> value)
+    QMap<QString, QMap<QString, QVariant>> cache;
     mutable QReadWriteLock lock;
 };
 

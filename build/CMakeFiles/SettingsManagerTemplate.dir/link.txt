@@ -1,0 +1,3 @@
+"C:\Program Files\CMake\bin\cmake.exe" -E rm -f CMakeFiles\SettingsManagerTemplate.dir/objects.a
+C:\ProgramData\mingw64\mingw64\bin\ar.exe qc CMakeFiles\SettingsManagerTemplate.dir/objects.a @CMakeFiles\SettingsManagerTemplate.dir\objects1.rsp
+C:\ProgramData\mingw64\mingw64\bin\c++.exe -Wl,--gc-sections -Wl,--whole-archive CMakeFiles\SettingsManagerTemplate.dir/objects.a -Wl,--no-whole-archive -o SettingsManagerTemplate.exe -Wl,--out-implib,libSettingsManagerTemplate.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\SettingsManagerTemplate.dir\linkLibs.rsp

@@ -1,16 +1,18 @@
 #ifndef LINEEDITFACTORY_H
 #define LINEEDITFACTORY_H
 
-#include <QWidget>
 #include "settingscontrolfactory.h"
+#include <QtWidgets/QLineEdit>
 
-class LineEditFactory : public SettingsControlFactory
-{
+class LineEditFactory : public SettingsControlFactory {
 public:
-    LineEditFactory(const QString& defaultText);
+    explicit LineEditFactory(const QString& defaultText = "");
+
     QWidget* create() const override;
+    QVariant defaultValue() const override;
+
 private:
     QString defaultText_;
 };
 
-#endif
+#endif // LINEEDITFACTORY_H

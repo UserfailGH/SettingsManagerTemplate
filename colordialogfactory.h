@@ -1,10 +1,9 @@
 #ifndef COLORDIALOGFACTORY_H
 #define COLORDIALOGFACTORY_H
 
-#include <QWidget>
 #include "settingscontrolfactory.h"
-#include "pushbuttonfactory.h"
 #include "lineeditfactory.h"
+#include "pushbuttonfactory.h"
 #include <QLineEdit>
 #include <QPushButton>
 #include <QColorDialog>
@@ -13,8 +12,9 @@ class ColorDialogFactory : public SettingsControlFactory {
 public:
     ColorDialogFactory(LineEditFactory* lineEdit, PushButtonFactory* pushButton);
     ~ColorDialogFactory();
-
     QWidget* create() const override;
+    QVariant defaultValue() const override;
+
     QLineEdit* getLineEdit() const;
     QPushButton* getPushButton() const;
 

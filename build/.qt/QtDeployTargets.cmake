@@ -1,0 +1,3 @@
+set(__QT_DEPLOY_TARGET_My1stProj_FILE C:/Users/HP/CLionProjects/SettingsManagerTemplate/build/My1stProj.exe)
+set(__QT_DEPLOY_TARGET_My1stProj_TYPE EXECUTABLE)
+set(__QT_DEPLOY_TARGET_My1stProj_RUNTIME_DLLS )

@@ -1,16 +1,16 @@
 #include "spinboxfactory.h"
-#include <QSpinBox>
 #include <algorithm>
 
-SpinBoxFactory::SpinBoxFactory(int defaultValue, int numFrom, int numTo)
-    : defaultValue_(defaultValue), numFrom_(numFrom), numTo_(numTo) {}
+SpinBoxFactory::SpinBoxFactory(int defaultValue, int min, int max)
+    : defaultValue_(defaultValue), min_(min), max_(max) {}
 
 QWidget* SpinBoxFactory::create() const {
-    QSpinBox* spinBox = new QSpinBox();
+    QSpinBox* sb = new QSpinBox();
+    sb->setRange(std::min(min_, max_), std::max(min_, max_));
+    sb->setValue(defaultValue_);
+    return sb;
+}
 
-    int minVal = std::min(numFrom_, numTo_);
-    int maxVal = std::max(numFrom_, numTo_);
-    spinBox->setRange(minVal, maxVal);
-    spinBox->setValue(defaultValue_);
-    return spinBox;
+QVariant SpinBoxFactory::defaultValue() const {
+    return defaultValue_;
 }

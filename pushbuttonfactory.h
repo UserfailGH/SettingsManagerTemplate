@@ -1,17 +1,18 @@
 #ifndef PUSHBUTTONFACTORY_H
 #define PUSHBUTTONFACTORY_H
 
-#include <QWidget>
 #include "settingscontrolfactory.h"
+#include <QPushButton>
+#include <QString>
 
-class PushButtonFactory : public SettingsControlFactory
-{
+class PushButtonFactory : public SettingsControlFactory {
 public:
-    PushButtonFactory(const QString& buttonText);
+    explicit PushButtonFactory(const QString& buttonText);
     QWidget* create() const override;
-    QString* buttonText;
+    QVariant defaultValue() const override;
+
 private:
     QString buttonText_;
 };
 
-#endif
+#endif // PUSHBUTTONFACTORY_H
