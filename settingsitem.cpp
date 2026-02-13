@@ -8,6 +8,7 @@
 #include <QSpinBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QDebug>
 
 SettingsItem::SettingsItem(SettingsItem* parent,
                            const QString& name,
@@ -45,29 +46,45 @@ QVariant SettingsItem::defaultValue() const
 
 void SettingsItem::resetToDefault()
 {
-    if (!factory_ || !controlWidget_) return;
+    if (!factory_ || !controlWidget_) {
+        qWarning() << "Нельзя сбросить: нет фабрики или controlWidget";
+        return;
+    }
 
     QWidget* wrapper = controlWidget_;
     QHBoxLayout* wrapperLayout = qobject_cast<QHBoxLayout*>(wrapper->layout());
-    if (!wrapperLayout) return;
+    if (!wrapperLayout) {
+        qWarning() << "Layout обёртки не найден";
+        return;
+    }
 
     QWidget* oldControl = nullptr;
     for (int i = 0; i < wrapperLayout->count(); ++i) {
-        QWidget* w = wrapperLayout->itemAt(i)->widget();
-        if (w && w != wrapper->findChild<QPushButton*>()) {
-            oldControl = w;
+        QLayoutItem* item = wrapperLayout->itemAt(i);
+        if (item && item->widget() && qobject_cast<QPushButton*>(item->widget()) == nullptr) {
+            oldControl = item->widget();
             break;
         }
     }
-    if (!oldControl) return;
+
+    if (!oldControl) {
+        qWarning() << "Старый контроль не найден";
+        return;
+    }
 
     QWidget* newControl = factory_->create();
+    if (!newControl) {
+        qWarning() << "Фабрика вернула nullptr";
+        return;
+    }
 
     wrapperLayout->removeWidget(oldControl);
     delete oldControl;
+
     wrapperLayout->insertWidget(0, newControl);
 
     wrapper->update();
+    wrapper->adjustSize();
 }
 
 void SettingsItem::addChild(SettingsItem* child)
@@ -85,7 +102,10 @@ SettingsItem* SettingsItem::child(int index) const
 
 QHBoxLayout* SettingsItem::createWidget()
 {
-    if (!factory_) return nullptr;
+    if (!factory_) {
+        qWarning() << "Нет фабрики для создания виджета";
+        return nullptr;
+    }
 
     QHBoxLayout* layout = new QHBoxLayout();
     layout->setContentsMargins(0, 0, 0, 0);
@@ -97,8 +117,18 @@ QHBoxLayout* SettingsItem::createWidget()
     layout->addWidget(label);
 
     QWidget* control = factory_->create();
+    if (!control) {
+        qWarning() << "Фабрика вернула nullptr при создании контроля";
+        return nullptr;
+    }
 
     controlWidget_ = SettingsControlFactory::createControlWithReset(this, control);
+    if (!controlWidget_) {
+        qWarning() << "createControlWithReset вернул nullptr";
+        delete control;
+        return nullptr;
+    }
+
     layout->addWidget(controlWidget_, 1);
 
     return layout;
@@ -107,19 +137,6 @@ QHBoxLayout* SettingsItem::createWidget()
 QVariant SettingsItem::getValue() const
 {
     if (!controlWidget_) return QVariant();
-
-    if (auto* combo = qobject_cast<QComboBox*>(controlWidget_)) {
-        return combo->currentText();
-    }
-    if (auto* check = qobject_cast<QCheckBox*>(controlWidget_)) {
-        return check->isChecked();
-    }
-    if (auto* spin = qobject_cast<QSpinBox*>(controlWidget_)) {
-        return spin->value();
-    }
-    if (auto* edit = qobject_cast<QLineEdit*>(controlWidget_)) {
-        return edit->text();
-    }
 
     if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
         if (auto* combo = wrapper->findChild<QComboBox*>()) {
@@ -134,6 +151,19 @@ QVariant SettingsItem::getValue() const
         if (auto* edit = wrapper->findChild<QLineEdit*>()) {
             return edit->text();
         }
+    }
+
+    if (auto* combo = qobject_cast<QComboBox*>(controlWidget_)) {
+        return combo->currentText();
+    }
+    if (auto* check = qobject_cast<QCheckBox*>(controlWidget_)) {
+        return check->isChecked();
+    }
+    if (auto* spin = qobject_cast<QSpinBox*>(controlWidget_)) {
+        return spin->value();
+    }
+    if (auto* edit = qobject_cast<QLineEdit*>(controlWidget_)) {
+        return edit->text();
     }
 
     return QVariant();
