@@ -5,14 +5,15 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QSpinBox>
+#include <QLineEdit>
 
 #include "settingscontrolfactory.h"
 
 class SettingsItem {
 public:
-    explicit SettingsItem(SettingsItem* parent,
-                          const QString& name,
-                          const QString& id,
+    explicit SettingsItem(SettingsItem* parent = nullptr,
+                          const QString& name = "",
+                          const QString& id = "",
                           const QString& description = "",
                           SettingsControlFactory* factory = nullptr,
                           bool savingEnabled = true);

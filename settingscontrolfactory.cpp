@@ -6,6 +6,7 @@
 #include <QtWidgets/QLineEdit>
 #include <QtWidgets/QSpinBox>
 #include <QtWidgets/QComboBox>
+#include <QDebug>
 
 QWidget* SettingsControlFactory::createControlWithReset(SettingsItem* item, QWidget* controlWidget)
 {
@@ -21,18 +22,35 @@ QWidget* SettingsControlFactory::createControlWithReset(SettingsItem* item, QWid
     resetBtn->setFixedSize(20, 20);
     resetBtn->setStyleSheet("QPushButton { border: none; }");
 
-    QObject::connect(resetBtn, &QPushButton::clicked, [item, controlWidget]() {
+    QObject::connect(resetBtn, &QPushButton::clicked, [wrapper, item]() mutable {
         QVariant defaultVal = item->factory()->defaultValue();
 
-        if (auto* cb = qobject_cast<QCheckBox*>(controlWidget)) {
+        if (auto* cb = wrapper->findChild<QCheckBox*>()) {
             cb->setChecked(defaultVal.toBool());
-        } else if (auto* le = qobject_cast<QLineEdit*>(controlWidget)) {
-            le->setText(defaultVal.toString());
-        } else if (auto* sb = qobject_cast<QSpinBox*>(controlWidget)) {
-            sb->setValue(defaultVal.toInt());
-        } else if (auto* combo = qobject_cast<QComboBox*>(controlWidget)) {
-            combo->setCurrentIndex(defaultVal.toInt());
+            qDebug() << "Сброс чекбокса выполнен";
+            return;
         }
+
+        if (auto* le = wrapper->findChild<QLineEdit*>()) {
+            le->setText(defaultVal.toString());
+            qDebug() << "Сброс line edit выполнен";
+            return;
+        }
+
+        if (auto* sb = wrapper->findChild<QSpinBox*>()) {
+            sb->setValue(defaultVal.toInt());
+            qDebug() << "Сброс spinbox выполнен";
+            return;
+        }
+
+        if (auto* combo = wrapper->findChild<QComboBox*>()) {
+            combo->setCurrentIndex(defaultVal.toInt());
+            qDebug() << "Сброс комбобокса выполнен";
+            return;
+        }
+
+        qWarning() << "Не найден ни один поддерживаемый виджет для сброса внутри обёртки. "
+                   << "Тип обёртки:" << wrapper->metaObject()->className();
     });
 
     layout->addWidget(resetBtn);
