@@ -1,5 +1,5 @@
 #include "settingscontrolfactory.h"
-#include "settingsitem.h"          // ← ТОЛЬКО ЗДЕСЬ НУЖЕН ПОЛНЫЙ ТИП
+#include "settingsitem.h"
 #include <QtWidgets/QPushButton>
 #include <QtWidgets/QHBoxLayout>
 #include <QtWidgets/QCheckBox>
@@ -33,7 +33,6 @@ QWidget* SettingsControlFactory::createControlWithReset(SettingsItem* item, QWid
         } else if (auto* combo = qobject_cast<QComboBox*>(controlWidget)) {
             combo->setCurrentIndex(defaultVal.toInt());
         }
-        // Добавь другие виджеты при необходимости
     });
 
     layout->addWidget(resetBtn);

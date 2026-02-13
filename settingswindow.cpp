@@ -187,7 +187,6 @@ void SettingsWindow::createPageForGroup(SettingsItem* group) {
     stackedWidget->addWidget(scroll);
 }
 
-// === Подключения ===
 void SettingsWindow::setupConnections() {
     connect(treeWidget, &QTreeWidget::currentItemChanged, this, &SettingsWindow::onTreeItemChanged);
     connect(resetAllButton, &QPushButton::clicked, this, &SettingsWindow::onResetAllClicked);
@@ -202,7 +201,6 @@ void SettingsWindow::onTreeItemChanged(QTreeWidgetItem* current, QTreeWidgetItem
     }
 }
 
-// === Сброс ===
 void SettingsWindow::onResetAllClicked() {
     if (QMessageBox::question(this, "Reset All", "Reset ALL settings to default?",
                               QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
