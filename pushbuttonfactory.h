@@ -9,7 +9,6 @@ class PushButtonFactory : public SettingsControlFactory {
 public:
     explicit PushButtonFactory(const QString& buttonText);
     QWidget* create() const override;
-    QVariant defaultValue() const override;
 
 private:
     QString buttonText_;

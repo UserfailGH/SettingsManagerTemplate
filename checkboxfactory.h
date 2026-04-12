@@ -10,7 +10,6 @@ public:
     explicit CheckBoxFactory(const QVariant& defaultValue = false);
 
     QWidget* create() const override;
-    QVariant defaultValue() const override;
 
 private:
     QVariant defaultValue_;

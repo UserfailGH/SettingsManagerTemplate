@@ -25,11 +25,6 @@
 #include <QCheckBox>
 #include <QSpinBox>
 #include <QLineEdit>
-#include <QColorDialog>
-#include <QFileDialog>
-
-#include <QStringList>
-#include <QVariant>
 
 SettingsWindow::SettingsWindow(QWidget* parent) : QWidget(parent) {
     setupUI();
@@ -72,32 +67,46 @@ void SettingsWindow::setupUI() {
 }
 
 void SettingsWindow::createSettingsTree() {
-    rootItem = new SettingsItem(nullptr, "Settings", "root", "Application Settings");
+    rootItem = new SettingsItem("root", "Settings", "Application Settings", QVariant(), nullptr, nullptr, false);
 
-    SettingsItem* mainGroup = new SettingsItem(rootItem, "Main Settings", "main_group", "General application settings");
-    SettingsItem* templateGroup = new SettingsItem(rootItem, "Template Settings", "template_group", "File template settings");
-    SettingsItem* colorGroup = new SettingsItem(rootItem, "Appearance", "appearance_group", "Visual appearance settings");
+    SettingsItem* mainGroup = new SettingsItem("main_group", "Main Settings", "General application settings", rootItem);
+    SettingsItem* templateGroup = new SettingsItem("template_group", "Template Settings", "File template settings", rootItem);
+    SettingsItem* colorGroup = new SettingsItem("appearance_group", "Appearance", "Visual appearance settings", rootItem);
 
-    auto* languageItem = new SettingsItem(mainGroup, "Language", "1", "Select interface language");
-    languageItem->setFactory(new ComboBoxFactory("English", {"English", "Russian", "Spanish"}), true);
+    // Language
+    auto* languageItem = new SettingsItem("1", "Language", "Select interface language",
+                                          "English", mainGroup,
+                                          new ComboBoxFactory({"English", "Russian", "Spanish"}), true);
 
-    auto* autostartItem = new SettingsItem(mainGroup, "Autostart", "2", "Run application on system startup");
-    autostartItem->setFactory(new CheckBoxFactory(true), true);
+    // Autostart
+    auto* autostartItem = new SettingsItem("2", "Autostart", "Run application on system startup",
+                                           true, mainGroup,
+                                           new CheckBoxFactory(), true);
 
-    auto* timeoutItem = new SettingsItem(mainGroup, "Timeout", "3", "Request timeout in milliseconds");
-    timeoutItem->setFactory(new SpinBoxFactory(300, 100, 10000), true);
+    // Timeout
+    auto* timeoutItem = new SettingsItem("3", "Timeout", "Request timeout in milliseconds",
+                                         300, mainGroup,
+                                         new SpinBoxFactory(100, 10000), true);
 
-    auto* fileTemplateItem = new SettingsItem(templateGroup, "File Template", "4", "Template for file searching");
-    fileTemplateItem->setFactory(new LineEditFactory("*.png"), true);
+    // File Template
+    auto* fileTemplateItem = new SettingsItem("4", "File Template", "Template for file searching",
+                                              "*.png", templateGroup,
+                                              new LineEditFactory(), true);
 
-    auto* storageItem = new SettingsItem(templateGroup, "Storage Path", "5", "Location where files will be stored");
-    storageItem->setFactory(new FileBrowseFactory(new LineEditFactory("D:/storage"), new PushButtonFactory("Browse...")), true);
+    // Storage Path
+    auto* storageItem = new SettingsItem("5", "Storage Path", "Location where files will be stored",
+                                         "D:/storage", templateGroup,
+                                         new FileBrowseFactory(new LineEditFactory(), new PushButtonFactory("Browse...")), true);
 
-    auto* themeItem = new SettingsItem(colorGroup, "Theme Color", "6", "Choose application theme color");
-    themeItem->setFactory(new ColorDialogFactory(new LineEditFactory("#0078d4"), new PushButtonFactory("Choose Color")), true);
+    // Theme Color
+    auto* themeItem = new SettingsItem("6", "Theme Color", "Choose application theme color",
+                                       "#0078d4", colorGroup,
+                                       new ColorDialogFactory(new LineEditFactory(), new PushButtonFactory("Choose Color")), true);
 
-    auto* fontSizeItem = new SettingsItem(colorGroup, "Font Size", "7", "Application font size");
-    fontSizeItem->setFactory(new SpinBoxFactory(12, 8, 24), true);
+    // Font Size
+    auto* fontSizeItem = new SettingsItem("7", "Font Size", "Application font size",
+                                          12, colorGroup,
+                                          new SpinBoxFactory(8, 24), true);
 
     buildTreeWidget();
     createPagesForGroups();
@@ -227,16 +236,16 @@ void SettingsWindow::onResetGroupClicked() {
         return;
     }
 
-    if (QMessageBox::question(this, "Reset Group", QString("Reset '%1'?").arg(group->name()),
+    if (QMessageBox::question(this, "Reset Group", QString("Reset '%1' group to default?").arg(group->name()),
                               QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
         for (int i = 0; i < group->childCount(); ++i) {
             auto* child = group->child(i);
             if (!child->isGroup() && child->isSavingEnabled()) {
-                child->resetToDefault();  // ← Сохраняет форматирование
+                child->resetToDefault();
             }
         }
         saveSettings();
-        QMessageBox::information(this, "Reset", QString("'%1' reset.").arg(group->name()));
+        QMessageBox::information(this, "Reset", QString("'%1' group reset to default.").arg(group->name()));
     }
 }
 
@@ -244,8 +253,7 @@ void SettingsWindow::loadSettings() {
     QSettings s("TestLabs", "TestSettings");
     for (SettingsItem* item : rootItem->getAllChildren()) {
         if (!item->isSavingEnabled() || item->isGroup()) continue;
-        QString path = buildSettingsPath(item);
-        QVariant saved = s.value(path, item->defaultValue());
+        QVariant saved = s.value(item->id(), item->defaultValue());
         if (saved != item->defaultValue()) {
             applyValueToWidget(item, saved);
         }
@@ -256,19 +264,9 @@ void SettingsWindow::saveSettings() {
     QSettings s("TestLabs", "TestSettings");
     for (SettingsItem* item : rootItem->getAllChildren()) {
         if (!item->isSavingEnabled() || item->isGroup()) continue;
-        s.setValue(buildSettingsPath(item), item->getValue());
+        s.setValue(item->id(), item->getValue());
     }
     s.sync();
-}
-
-QString SettingsWindow::buildSettingsPath(SettingsItem* item) const {
-    QStringList parts;
-    SettingsItem* cur = item;
-    while (cur && !cur->id().isEmpty()) {
-        parts.prepend(cur->id());
-        cur = cur->parent();
-    }
-    return parts.join("/");
 }
 
 void SettingsWindow::applyValueToWidget(SettingsItem* item, const QVariant& value) {

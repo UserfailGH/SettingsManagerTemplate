@@ -1,6 +1,5 @@
 #include "settingsitem.h"
 #include "settingscontrolfactory.h"
-
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QComboBox>
@@ -10,17 +9,39 @@
 #include <QPushButton>
 #include <QDebug>
 
-SettingsItem::SettingsItem(SettingsItem* parent,
+SettingsItem::SettingsItem(const QString& id,
                            const QString& name,
-                           const QString& id,
                            const QString& description,
+                           const QVariant& defaultValue,
+                           SettingsItem* parent,
                            SettingsControlFactory* factory,
-                           bool savingEnabled)
-    : parent_(parent), name_(name), id_(id), description_(description),
-      factory_(factory), savingEnabled_(savingEnabled)
+                           bool enableSaving)
+    : parent_(parent)
+    , name_(name)
+    , id_(id)
+    , description_(description)
+    , defaultValue_(defaultValue)
+    , factory_(factory)
+    , enableSaving_(enableSaving)
 {
     if (parent_) {
-        parent_->addChild(this);
+        parent_->appendChild(this);
+    }
+}
+
+SettingsItem::SettingsItem(const QString& id,
+                           const QString& name,
+                           const QString& description,
+                           SettingsItem* parent)
+    : parent_(parent)
+    , name_(name)
+    , id_(id)
+    , description_(description)
+    , factory_(nullptr)
+    , enableSaving_(false)
+{
+    if (parent_) {
+        parent_->appendChild(this);
     }
 }
 
@@ -30,31 +51,68 @@ SettingsItem::~SettingsItem()
     delete controlWidget_;
 }
 
-void SettingsItem::setFactory(SettingsControlFactory* factory, bool savingEnabled)
+void SettingsItem::appendChild(SettingsItem* child)
 {
-    factory_ = factory;
-    savingEnabled_ = savingEnabled;
+    children_.append(child);
 }
 
-QVariant SettingsItem::defaultValue() const
+SettingsItem* SettingsItem::child(int row) const
 {
-    if (factory_) {
-        return factory_->defaultValue();
+    if (row >= 0 && row < children_.size()) {
+        return children_[row];
     }
-    return QVariant();
+    return nullptr;
+}
+
+int SettingsItem::row() const
+{
+    if (parent_) {
+        return parent_->children_.indexOf(const_cast<SettingsItem*>(this));
+    }
+    return 0;
+}
+
+QList<SettingsItem*> SettingsItem::getAllChildren() const
+{
+    QList<SettingsItem*> result;
+    for (SettingsItem* child : children_) {
+        result.append(child);
+        result.append(child->getAllChildren());
+    }
+    return result;
+}
+
+SettingsItem* SettingsItem::findItemById(const QString& id) const
+{
+    if (id_ == id) return const_cast<SettingsItem*>(this);
+    for (SettingsItem* child : children_) {
+        SettingsItem* found = child->findItemById(id);
+        if (found) return found;
+    }
+    return nullptr;
+}
+
+SettingsItem* SettingsItem::findItemByName(const QString& name) const
+{
+    if (name_ == name) return const_cast<SettingsItem*>(this);
+    for (SettingsItem* child : children_) {
+        SettingsItem* found = child->findItemByName(name);
+        if (found) return found;
+    }
+    return nullptr;
 }
 
 void SettingsItem::resetToDefault()
 {
     if (!factory_ || !controlWidget_) {
-        qWarning() << "Нельзя сбросить: нет фабрики или controlWidget";
+        qWarning() << "Cannot reset: no factory or controlWidget";
         return;
     }
 
     QWidget* wrapper = controlWidget_;
     QHBoxLayout* wrapperLayout = qobject_cast<QHBoxLayout*>(wrapper->layout());
     if (!wrapperLayout) {
-        qWarning() << "Layout обёртки не найден";
+        qWarning() << "Wrapper layout not found";
         return;
     }
 
@@ -68,42 +126,39 @@ void SettingsItem::resetToDefault()
     }
 
     if (!oldControl) {
-        qWarning() << "Старый контроль не найден";
+        qWarning() << "Old control not found";
         return;
     }
 
     QWidget* newControl = factory_->create();
     if (!newControl) {
-        qWarning() << "Фабрика вернула nullptr";
+        qWarning() << "Factory returned nullptr";
         return;
+    }
+
+    if (auto* spinBox = qobject_cast<QSpinBox*>(newControl)) {
+        spinBox->setValue(defaultValue_.toInt());
+    } else if (auto* lineEdit = qobject_cast<QLineEdit*>(newControl)) {
+        lineEdit->setText(defaultValue_.toString());
+    } else if (auto* checkBox = qobject_cast<QCheckBox*>(newControl)) {
+        checkBox->setChecked(defaultValue_.toBool());
+    } else if (auto* comboBox = qobject_cast<QComboBox*>(newControl)) {
+        int index = comboBox->findText(defaultValue_.toString());
+        if (index >= 0) comboBox->setCurrentIndex(index);
     }
 
     wrapperLayout->removeWidget(oldControl);
     delete oldControl;
-
     wrapperLayout->insertWidget(0, newControl);
 
     wrapper->update();
     wrapper->adjustSize();
 }
 
-void SettingsItem::addChild(SettingsItem* child)
-{
-    children_.append(child);
-}
-
-SettingsItem* SettingsItem::child(int index) const
-{
-    if (index >= 0 && index < children_.size()) {
-        return children_[index];
-    }
-    return nullptr;
-}
-
 QHBoxLayout* SettingsItem::createWidget()
 {
     if (!factory_) {
-        qWarning() << "Нет фабрики для создания виджета";
+        qWarning() << "No factory to create widget";
         return nullptr;
     }
 
@@ -118,17 +173,23 @@ QHBoxLayout* SettingsItem::createWidget()
 
     QWidget* control = factory_->create();
     if (!control) {
-        qWarning() << "Фабрика вернула nullptr при создании контроля";
+        qWarning() << "Factory returned nullptr";
         return nullptr;
+    }
+
+    // Устанавливаем значение по умолчанию из defaultValue_
+    if (auto* spinBox = qobject_cast<QSpinBox*>(control)) {
+        spinBox->setValue(defaultValue_.toInt());
+    } else if (auto* lineEdit = qobject_cast<QLineEdit*>(control)) {
+        lineEdit->setText(defaultValue_.toString());
+    } else if (auto* checkBox = qobject_cast<QCheckBox*>(control)) {
+        checkBox->setChecked(defaultValue_.toBool());
+    } else if (auto* comboBox = qobject_cast<QComboBox*>(control)) {
+        int index = comboBox->findText(defaultValue_.toString());
+        if (index >= 0) comboBox->setCurrentIndex(index);
     }
 
     controlWidget_ = SettingsControlFactory::createControlWithReset(this, control);
-    if (!controlWidget_) {
-        qWarning() << "createControlWithReset вернул nullptr";
-        delete control;
-        return nullptr;
-    }
-
     layout->addWidget(controlWidget_, 1);
 
     return layout;
@@ -152,20 +213,6 @@ QVariant SettingsItem::getValue() const
             return edit->text();
         }
     }
-
-    if (auto* combo = qobject_cast<QComboBox*>(controlWidget_)) {
-        return combo->currentText();
-    }
-    if (auto* check = qobject_cast<QCheckBox*>(controlWidget_)) {
-        return check->isChecked();
-    }
-    if (auto* spin = qobject_cast<QSpinBox*>(controlWidget_)) {
-        return spin->value();
-    }
-    if (auto* edit = qobject_cast<QLineEdit*>(controlWidget_)) {
-        return edit->text();
-    }
-
     return QVariant();
 }
 
@@ -174,7 +221,7 @@ QComboBox* SettingsItem::comboBox() const
     if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
         return wrapper->findChild<QComboBox*>();
     }
-    return qobject_cast<QComboBox*>(controlWidget_);
+    return nullptr;
 }
 
 QCheckBox* SettingsItem::checkBox() const
@@ -182,7 +229,7 @@ QCheckBox* SettingsItem::checkBox() const
     if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
         return wrapper->findChild<QCheckBox*>();
     }
-    return qobject_cast<QCheckBox*>(controlWidget_);
+    return nullptr;
 }
 
 QSpinBox* SettingsItem::spinBox() const
@@ -190,15 +237,5 @@ QSpinBox* SettingsItem::spinBox() const
     if (auto* wrapper = qobject_cast<QWidget*>(controlWidget_)) {
         return wrapper->findChild<QSpinBox*>();
     }
-    return qobject_cast<QSpinBox*>(controlWidget_);
-}
-
-QList<SettingsItem*> SettingsItem::getAllChildren() const
-{
-    QList<SettingsItem*> result;
-    for (SettingsItem* child : children_) {
-        result.append(child);
-        result.append(child->getAllChildren());
-    }
-    return result;
+    return nullptr;
 }

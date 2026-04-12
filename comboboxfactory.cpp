@@ -22,7 +22,3 @@ QWidget* ComboBoxFactory::create() const {
     combo->setCurrentIndex(defaultIndex_);
     return combo;
 }
-
-QVariant ComboBoxFactory::defaultValue() const {
-    return defaultIndex_;
-}

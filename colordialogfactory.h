@@ -13,7 +13,6 @@ public:
     ColorDialogFactory(LineEditFactory* lineEdit, PushButtonFactory* pushButton);
     ~ColorDialogFactory();
     QWidget* create() const override;
-    QVariant defaultValue() const override;
 
     QLineEdit* getLineEdit() const;
     QPushButton* getPushButton() const;

@@ -33,9 +33,5 @@ QWidget* ColorDialogFactory::create() const {
     return container;
 }
 
-QVariant ColorDialogFactory::defaultValue() const {
-    return lineEdit_->defaultValue();
-}
-
 QLineEdit* ColorDialogFactory::getLineEdit() const { return lineEditWidget_; }
 QPushButton* ColorDialogFactory::getPushButton() const { return pushButtonWidget_; }

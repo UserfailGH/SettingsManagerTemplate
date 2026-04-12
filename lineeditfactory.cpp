@@ -8,7 +8,3 @@ QWidget* LineEditFactory::create() const {
     le->setText(defaultText_);
     return le;
 }
-
-QVariant LineEditFactory::defaultValue() const {
-    return defaultText_;
-}

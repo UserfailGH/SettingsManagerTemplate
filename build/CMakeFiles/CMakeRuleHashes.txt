@@ -1,0 +1,4 @@
+# Hashes of file build rules.
+247375c10499306753a4f111939fcf34 CMakeFiles/My1stProj_autogen
+aef730b8adc88a1f989d9042c2ff50a7 My1stProj_autogen/timestamp
+5d0aa955e10de634d5407527a14f5110 SettingsManagerTemplate_autogen/timestamp

@@ -12,7 +12,6 @@ public:
     explicit ComboBoxFactory(const QString& defaultValue, const QStringList& items);
 
     QWidget* create() const override;
-    QVariant defaultValue() const override;
 
 private:
     QStringList items_;

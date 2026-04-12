@@ -32,9 +32,5 @@ QWidget* FileBrowseFactory::create() const {
     return container;
 }
 
-QVariant FileBrowseFactory::defaultValue() const {
-    return lineEdit_->defaultValue();
-}
-
 QLineEdit* FileBrowseFactory::getLineEdit() const { return lineEditWidget_; }
 QPushButton* FileBrowseFactory::getPushButton() const { return pushButtonWidget_; }

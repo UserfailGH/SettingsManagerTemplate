@@ -9,7 +9,3 @@ QWidget* CheckBoxFactory::create() const {
     cb->setChecked(defaultValue_.toBool());
     return cb;
 }
-
-QVariant CheckBoxFactory::defaultValue() const {
-    return defaultValue_;
-}

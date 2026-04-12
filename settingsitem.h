@@ -11,55 +11,66 @@
 
 class SettingsItem {
 public:
-    explicit SettingsItem(SettingsItem* parent = nullptr,
-                          const QString& name = "",
-                          const QString& id = "",
-                          const QString& description = "",
-                          SettingsControlFactory* factory = nullptr,
-                          bool savingEnabled = true);
+    SettingsItem(const QString& id,
+                 const QString& name,
+                 const QString& description,
+                 const QVariant& defaultValue,
+                 SettingsItem* parent = nullptr,
+                 SettingsControlFactory* factory = nullptr,
+                 bool enableSaving = true);
+
+    SettingsItem(const QString& id,
+                 const QString& name,
+                 const QString& description,
+                 SettingsItem* parent = nullptr);
 
     ~SettingsItem();
 
+    SettingsItem* parent() const { return parent_; }
+    void appendChild(SettingsItem* child);
+    SettingsItem* child(int row) const;
+    int childCount() const { return children_.size(); }
+    int row() const;
+
+    bool isGroup() const {
+        return (parent_ == nullptr || factory_ == nullptr);
+    }
+
+    QList<SettingsItem*> getAllChildren() const;
+    SettingsItem* findItemById(const QString& id) const;
+    SettingsItem* findItemByName(const QString& name) const;
+
+    // Основные методы
     QString name() const { return name_; }
     QString id() const { return id_; }
     QString description() const { return description_; }
-    bool isGroup() const { return childCount() > 0 && !factory_; }
-
-    void addChild(SettingsItem* child);
-    SettingsItem* child(int index) const;
-    int childCount() const { return children_.size(); }
-    SettingsItem* parent() const { return parent_; }
-
+    QVariant defaultValue() const { return defaultValue_; }
     SettingsControlFactory* factory() const { return factory_; }
-    void setFactory(SettingsControlFactory* factory, bool savingEnabled = true);
 
-    QVariant defaultValue() const;
+    bool isSavingEnabled() const { return enableSaving_; }
+
     void resetToDefault();
-
     QHBoxLayout* createWidget();
     QWidget* controlWidget() const { return controlWidget_; }
     void setControlWidget(QWidget* widget) { controlWidget_ = widget; }
-
-    bool isSavingEnabled() const { return savingEnabled_; }
     QVariant getValue() const;
-
-    QList<SettingsItem*> getAllChildren() const;
 
     QComboBox* comboBox() const;
     QCheckBox* checkBox() const;
     QSpinBox* spinBox() const;
 
 private:
-    QString name_;
-    QString id_;
-    QString description_;
-
     SettingsItem* parent_;
     QList<SettingsItem*> children_;
 
+    QString name_;
+    QString id_;
+    QString description_;
+    QVariant defaultValue_;
+
     SettingsControlFactory* factory_;
     QWidget* controlWidget_ = nullptr;
-    bool savingEnabled_;
+    bool enableSaving_;
 };
 
 #endif // SETTINGSITEM_H

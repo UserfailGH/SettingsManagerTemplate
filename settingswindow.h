@@ -1,32 +1,22 @@
 #ifndef SETTINGSWINDOW_H
 #define SETTINGSWINDOW_H
 
-#include <QtWidgets/QWidget>
+#include <QWidget>
+#include <QTreeWidget>
+#include <QStackedWidget>
+#include <QPushButton>
 #include <QMap>
 
 class SettingsItem;
-class QTreeWidget;
-class QTreeWidgetItem;
-class QStackedWidget;
-class QScrollArea;
-class QPushButton;
 
-class SettingsWindow : public QWidget
-{
+class SettingsWindow : public QWidget {
     Q_OBJECT
 
 public:
-    SettingsWindow(QWidget* parent = nullptr);
+    explicit SettingsWindow(QWidget* parent = nullptr);
     ~SettingsWindow();
 
-private:
-    void setupUI();
-    void createSettingsTree();
-    void buildTreeWidget();
-    void addItemToTreeWidget(SettingsItem* settingsItem, QTreeWidgetItem* parentTreeItem);
-    void createPagesForGroups();
-    void createPageForGroup(SettingsItem* groupItem);
-    void setupConnections();
+protected:
     void closeEvent(QCloseEvent* event) override;
 
 private slots:
@@ -35,19 +25,25 @@ private slots:
     void onResetGroupClicked();
 
 private:
-    QTreeWidget* treeWidget;
-    QStackedWidget* stackedWidget;
-    SettingsItem* rootItem;
-    QMap<SettingsItem*, QScrollArea*> groupPages;
-    QPushButton* resetAllButton;
-    QPushButton* resetGroupButton;
-
+    void setupUI();
+    void createSettingsTree();
+    void buildTreeWidget();
+    void addItemToTreeWidget(SettingsItem* item, QTreeWidgetItem* parent);
+    void createPagesForGroups();
+    void createPageForGroup(SettingsItem* group);
+    void setupConnections();
     void loadSettings();
     void saveSettings();
-    void connectSignalsForAutoSave();
-    QString buildSettingsPath(SettingsItem* item) const;
     void applyValueToWidget(SettingsItem* item, const QVariant& value);
-    void resetItemToDefault(SettingsItem* item);
+    void connectSignalsForAutoSave();
+
+    QTreeWidget* treeWidget = nullptr;
+    QStackedWidget* stackedWidget = nullptr;
+    QPushButton* resetAllButton = nullptr;
+    QPushButton* resetGroupButton = nullptr;
+    QMap<SettingsItem*, QWidget*> groupPages;
+
+    SettingsItem* rootItem = nullptr;
 };
 
 #endif // SETTINGSWINDOW_H

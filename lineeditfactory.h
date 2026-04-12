@@ -9,7 +9,6 @@ public:
     explicit LineEditFactory(const QString& defaultText = "");
 
     QWidget* create() const override;
-    QVariant defaultValue() const override;
 
 private:
     QString defaultText_;
