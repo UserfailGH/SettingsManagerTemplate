@@ -1,5 +1,0 @@
-C:/Users/HP/CLionProjects/SettingsManagerTemplate/build/CMakeFiles/My1stProj.dir
-C:/Users/HP/CLionProjects/SettingsManagerTemplate/build/CMakeFiles/edit_cache.dir
-C:/Users/HP/CLionProjects/SettingsManagerTemplate/build/CMakeFiles/rebuild_cache.dir
-C:/Users/HP/CLionProjects/SettingsManagerTemplate/build/CMakeFiles/My1stProj_autogen_timestamp_deps.dir
-C:/Users/HP/CLionProjects/SettingsManagerTemplate/build/CMakeFiles/My1stProj_autogen.dir
